@@ -1,0 +1,63 @@
+- section: Getting Started
+  items:
+    - title: Overview
+      url: /getting-started/
+    - title: Installation
+      url: /getting-started/installation/
+    - title: Quickstart
+      url: /getting-started/quickstart/
+
+- section: Concepts
+  items:
+    - title: Pipeline Overview
+      url: /concepts/pipeline/
+    - title: Data Model (JSON-LD & RDF)
+      url: /concepts/data-model/
+    - title: Contexts & Identifiers
+      url: /concepts/contexts-and-ids/
+    - title: Input Formats
+      url: /concepts/input-formats/
+    - title: Validation & Rules
+      url: /concepts/validation-and-rules/
+    - title: Performance & Costs
+      url: /concepts/performance/
+
+- section: How-To Guides
+  items:
+    - title: Ingest CSV
+      url: /how-to/ingest-csv/
+    - title: Ingest XML
+      url: /how-to/ingest-xml/
+    - title: Ingest JDBC
+      url: /how-to/ingest-jdbc/
+    - title: Ingest Spark
+      url: /how-to/ingest-spark/
+    - title: Add SHACL Validation
+      url: /how-to/add-shacl/
+    - title: Run SPARQL Post-Processing
+      url: /how-to/run-sparql/
+    - title: Custom JSON Transform
+      url: /how-to/custom-json-transform/
+    - title: Use Stdin/Stdout
+      url: /how-to/stdin-stdout/
+    - title: Troubleshooting
+      url: /how-to/troubleshooting/
+
+- section: Reference
+  items:
+    - title: CLI Reference
+      url: /reference/cli/
+    - title: Lift Plan YAML
+      url: /reference/lift-plan/
+    - title: Input Sources
+      url: /reference/input-sources/
+    - title: Lift Options
+      url: /reference/lift-options/
+    - title: SDK Reference
+      url: /reference/sdk/
+
+- section: Specifications
+  items:
+    - title: Semantic Lift Plan
+      url: /specs/semantic-lift-plan/
+

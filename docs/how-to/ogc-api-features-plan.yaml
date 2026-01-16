@@ -1,0 +1,16 @@
+input:
+  type: api
+  protocol: ogc-api-features
+  config:
+    baseUrl: "https://demo.pygeoapi.io/master"
+    collection: "lakes"
+    limit: 5
+    params:
+      f: "json"
+    headers:
+      Accept: "application/geo+json, application/json"
+context:
+  inline:
+    "@vocab": "https://example.com/ogc/"
+    "type": "@type"
+

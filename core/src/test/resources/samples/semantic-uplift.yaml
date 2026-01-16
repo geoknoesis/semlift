@@ -1,0 +1,7 @@
+context:
+  ref: "classpath:/samples/context.jsonld"
+additionalSteps:
+  - type: shacl
+    ref: "classpath:/samples/shapes.ttl"
+
+

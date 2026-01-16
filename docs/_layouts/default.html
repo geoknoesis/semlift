@@ -1,0 +1,41 @@
+---
+layout: null
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{{ page.title }} | {{ site.title }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ "/assets/css/style.css" | relative_url }}">
+    {% seo %}
+  </head>
+  <body>
+    <div class="wrapper">
+      <header class="site-header">
+        <h1 class="site-title"><a href="{{ "/" | relative_url }}">{{ site.title }}</a></h1>
+        <p class="site-description">{{ site.description }}</p>
+        <nav class="site-nav">
+          {% for group in site.data.navigation %}
+            <div class="nav-section">
+              <div class="nav-section-title">{{ group.section }}</div>
+              <ul class="nav-section-list">
+                {% for item in group.items %}
+                  <li><a href="{{ item.url | relative_url }}">{{ item.title }}</a></li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endfor %}
+        </nav>
+      </header>
+      <section class="site-content">
+        {{ content }}
+      </section>
+      <footer class="site-footer">
+        <p>Built with Jekyll on GitHub Pages.</p>
+      </footer>
+    </div>
+  </body>
+</html>
+
+

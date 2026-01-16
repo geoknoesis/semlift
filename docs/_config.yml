@@ -1,0 +1,12 @@
+title: SemLift Documentation
+description: Format-agnostic semantic lifting for JSON, XML, CSV, and JDBC to RDF.
+theme: jekyll-theme-minimal
+markdown: kramdown
+kramdown:
+  input: GFM
+plugins:
+  - jekyll-seo-tag
+  - jekyll-mermaid
+exclude:
+  - grit
+

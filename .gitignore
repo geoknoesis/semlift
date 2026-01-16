@@ -1,0 +1,20 @@
+.gradle/
+.idea/
+*.iml
+
+# Build outputs
+build/
+**/build/
+out/
+**/out/
+
+# Generated site
+docs/_site/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+

@@ -1,0 +1,757 @@
+---
+title: Semantic Lift Plan Specification
+layout: default
+permalink: /specs/semantic-lift-plan/
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Semantic Lift Plan</title>
+    <script class="remove" src="https://www.w3.org/Tools/respec/respec-w3c"></script>
+    <script class="remove">
+      var respecConfig = {
+        specStatus: "ED",
+        shortName: "semantic-lift-plan",
+        editors: [
+          {
+            name: "SemLift Contributors",
+            url: "https://github.com/semlift/semlift"
+          }
+        ],
+        github: "https://github.com/semlift/semlift",
+        lint: { "no-unused-dfn": false },
+        localBiblio: {
+          "JSON-LD": {
+            title: "JSON-LD 1.1",
+            href: "https://www.w3.org/TR/json-ld11/",
+            publisher: "W3C"
+          },
+          "SHACL": {
+            title: "Shapes Constraint Language (SHACL)",
+            href: "https://www.w3.org/TR/shacl/",
+            publisher: "W3C"
+          }
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <section id="abstract">
+      <p>
+        This specification defines the Semantic Lift Plan, a portable description of how to
+        transform structured data into RDF using JSON-LD contexts, pre-processing steps, and
+        post-processing validation or transformation rules. The plan can be serialized in YAML,
+        JSON, or RDF (Turtle).
+      </p>
+    </section>
+
+    <section id="sotd">
+      <p>This is an editor's draft and may change without notice.</p>
+    </section>
+
+    <section id="introduction">
+      <h2>Introduction</h2>
+      <p>
+        A Semantic Lift Plan describes the steps needed to lift structured data into RDF.
+        It references JSON-LD contexts, optional data shaping steps (such as JSON Schema validation),
+        and post-processing steps (such as SHACL validation). Plans can be composed using imports and
+        may include metadata for discovery and profiling.
+      </p>
+      <p>
+        This specification targets portability and reuse. A plan should be usable across tools and
+        environments without embedding tool-specific logic. The plan separates the data shaping
+        pipeline from execution details (such as where input data is stored or how contexts are
+        cached), enabling consistent lifting behavior across deployments.
+      </p>
+    </section>
+
+    <section id="conformance">
+      <p>
+        A conforming implementation MUST support the canonical JSON model defined in this
+        specification. YAML is a serialization of that model. Turtle is a semantic serialization
+        using the JSON-LD context provided by this specification.
+      </p>
+      <p>
+        Implementations MAY support additional step types, input types, or metadata fields,
+        but MUST ignore unknown fields without failing the plan.
+      </p>
+    </section>
+
+    <section id="terminology">
+      <h2>Terminology</h2>
+      <dl>
+        <dt>Plan</dt>
+        <dd>The top-level JSON object describing lifting behavior.</dd>
+        <dt>Context</dt>
+        <dd>A JSON-LD context, inline or by reference.</dd>
+        <dt>Pre-step</dt>
+        <dd>A transformation or validation executed before JSON-LD embedding.</dd>
+        <dt>Post-step</dt>
+        <dd>A validation or transformation executed after RDF generation.</dd>
+        <dt>Import</dt>
+        <dd>A reference to another plan that is composed into the current plan.</dd>
+        <dt>Profile</dt>
+        <dd>A set of constraints or conventions layered on top of a base plan.</dd>
+      </dl>
+    </section>
+
+    <section id="processing-model">
+      <h2>Processing Model</h2>
+      <p>
+        A plan is executed in four phases: input acquisition, pre-processing, JSON-LD embedding,
+        and post-processing. Input acquisition retrieves or reads the source data. Pre-processing
+        applies data shaping and validation. JSON-LD embedding applies the plan context to create
+        JSON-LD. Post-processing validates or transforms RDF outputs.
+      </p>
+      <ol>
+        <li>Resolve and compose imports (if present).</li>
+        <li>Acquire input data using the resolved input specification.</li>
+        <li>Apply all pre-steps in order.</li>
+        <li>Apply identifier rules (if present) to mint identifiers.</li>
+        <li>Embed the JSON-LD context and generate RDF.</li>
+        <li>Apply all post-steps in order.</li>
+      </ol>
+      <p>
+        If strict mode is enabled, validation failures in pre- or post-steps MAY terminate the
+        pipeline depending on the step configuration.
+      </p>
+    </section>
+
+    <section id="model">
+      <h2>Canonical JSON Model</h2>
+      <p>
+        The canonical representation is JSON. YAML is a direct serialization of the same data
+        model. Fields are case-sensitive.
+      </p>
+
+      <section id="top-level">
+        <h3>Top-level fields</h3>
+        <dl>
+          <dt><code>context</code> (required)</dt>
+          <dd>Context specification. See <a href="#context-spec">Context</a>.</dd>
+          <dt><code>additionalSteps</code> (optional)</dt>
+          <dd>List of pre/post steps. See <a href="#steps">Steps</a>.</dd>
+          <dt><code>idRules</code> (optional)</dt>
+          <dd>Identifier rules for minting IRIs. See <a href="#id-rules">Identifier rules</a>.</dd>
+          <dt><code>input</code> (optional)</dt>
+          <dd>Input specification. See <a href="#input-spec">Input</a>.</dd>
+          <dt><code>imports</code> (optional)</dt>
+          <dd>List of plan imports. See <a href="#imports">Imports</a>.</dd>
+          <dt><code>metadata</code> (optional)</dt>
+          <dd>Descriptive metadata. See <a href="#metadata">Metadata</a>.</dd>
+        </dl>
+      </section>
+
+      <section id="context-spec">
+        <h3>Context</h3>
+        <p>A context can be provided by reference or inline JSON.</p>
+        <p>
+          When plans are composed, contexts are combined into a JSON-LD <code>@context</code> array.
+          The local context MUST appear last so that local terms override imported terms.
+        </p>
+        <p>This example references an external JSON-LD context file.</p>
+        <pre class="example json">
+{
+  "context": { "ref": "context.jsonld" }
+}
+        </pre>
+        <p>This example embeds an inline context that defines a vocabulary and identifier mapping.</p>
+        <pre class="example json">
+{
+  "context": {
+    "json": {
+      "@context": {
+        "@vocab": "https://example.com/",
+        "id": "@id"
+      }
+    }
+  }
+}
+        </pre>
+        <p>This example composes multiple contexts using a JSON-LD <code>@context</code> array.</p>
+        <pre class="example json">
+{
+  "context": {
+    "json": {
+      "@context": [
+        "https://example.com/base.jsonld",
+        { "@vocab": "https://example.com/vocab/", "id": "@id" }
+      ]
+    }
+  }
+}
+        </pre>
+      </section>
+
+      <section id="id-rules">
+        <h3>Identifier rules</h3>
+        <p>
+          Identifier rules provide a declarative shortcut for minting identifiers from one or more
+          fields. Rules are applied after pre-steps and before JSON-LD embedding.
+        </p>
+        <p>
+          Identifier rules MAY be declared inline in the plan, inside the plan context as
+          <code>context.idRules</code>, referenced as an external document, or injected by an
+          execution environment (for example, via a command-line flag). When provided in multiple
+          places, implementations MUST merge the rules in the following order: imported plans,
+          referenced rules, context-scoped rules, plan-local rules, and injected rules.
+        </p>
+        <p>
+          The <code>idRules</code> field MAY be either an object with a <code>ref</code> or
+          <code>json</code> payload, or a direct array of rule objects. Each rule object has the
+          following fields:
+        </p>
+        <ul>
+          <li><code>path</code> (required): JSON Pointer-like path to the identifier field to set.</li>
+          <li><code>template</code> (required): RFC 6570 URI template used to mint the identifier.</li>
+          <li><code>scope</code> (optional): JSON Pointer-like path to the object used for variable resolution.
+            If omitted, variables are resolved from the document root.</li>
+          <li><code>strict</code> (optional): If <code>true</code>, missing paths or template variables MUST
+            terminate the pipeline. Defaults to <code>false</code>.</li>
+        </ul>
+        <p>This example mints an identifier from multiple fields.</p>
+        <pre class="example json">
+{
+  "idRules": [
+    { "path": "/id", "template": "https://example.com/resource/{type}/{code}" }
+  ],
+  "context": {
+    "json": {
+      "@context": {
+        "@vocab": "https://example.com/vocab/",
+        "id": "@id"
+      }
+    }
+  }
+}
+        </pre>
+        <p>This example references an external rules file.</p>
+        <pre class="example json">
+{
+  "idRules": { "ref": "id-rules.json" }
+}
+        </pre>
+        <p>This example declares rules inside the context specification.</p>
+        <pre class="example json">
+{
+  "context": {
+    "ref": "context.jsonld",
+    "idRules": [
+      { "path": "/id", "template": "https://example.com/resource/{code}" }
+    ]
+  }
+}
+        </pre>
+      </section>
+
+      <section id="steps">
+        <h3>Steps</h3>
+        <p>
+          Each step has a <code>type</code> and either <code>code</code> or <code>ref</code>.
+          Implementations MAY support additional fields depending on the step type.
+        </p>
+        <p>
+          Steps are interpreted as either pre-steps or post-steps. Pre-steps run before JSON-LD
+          embedding; post-steps run on RDF output. Implementations SHOULD preserve ordering.
+        </p>
+        <ul>
+          <li><code>jq</code> (pre-step)</li>
+          <li><code>kotlin-json</code> (pre-step)</li>
+          <li><code>json-schema</code> (pre-step)</li>
+          <li><code>shacl</code> (post-step)</li>
+          <li><code>sparql-construct</code> (post-step)</li>
+          <li><code>sparql-update</code> (post-step)</li>
+        </ul>
+        <p>This example validates JSON with a schema, then validates RDF with SHACL.</p>
+        <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "json-schema", "ref": "schema.json", "strict": true },
+    { "type": "shacl", "ref": "shapes.ttl" }
+  ]
+}
+        </pre>
+        <section id="jq-step">
+          <h4>jq</h4>
+          <p>
+            The <code>jq</code> step applies a jq program to the normalized JSON.
+            Use <code>code</code> for inline scripts, or <code>ref</code> for external scripts.
+            To keep plans portable, use relative references or classpath resources.
+          </p>
+          <p>This example loads a jq script from a local plan-relative path.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "jq", "ref": "transforms/normalize.jq" }
+  ]
+}
+          </pre>
+          <p>This example chains two jq steps to coerce and filter values.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "jq", "code": ".items[] |= (.value |= tonumber)" },
+    { "type": "jq", "code": ".items |= map(select(.value > 0))" }
+  ]
+}
+          </pre>
+        </section>
+        <section id="jq-declarative">
+          <h4>Declarative jq subset</h4>
+          <p>
+            For portability and tooling, implementations MAY support a declarative subset of jq
+            expressed as structured operations. This profile focuses on common transformations:
+            <code>set</code>, <code>copy</code>, <code>move</code>, <code>delete</code>,
+            <code>rename</code>, <code>cast</code>, <code>map</code>, and <code>filter</code>.
+          </p>
+          <p>
+            A declarative jq step uses a <code>type</code> of <code>jq-declarative</code> and an
+            <code>ops</code> array. Each operation targets a JSON Pointer-like path. Implementations
+            SHOULD treat missing paths as no-ops unless <code>strict</code> is true.
+          </p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    {
+      "type": "jq-declarative",
+      "strict": false,
+      "ops": [
+        { "op": "set", "path": "/status", "value": "active" },
+        { "op": "copy", "from": "/id", "path": "/identifier" },
+        { "op": "move", "from": "/props/name", "path": "/name" },
+        { "op": "delete", "path": "/props" },
+        { "op": "rename", "from": "/height", "path": "/elevation" },
+        { "op": "cast", "path": "/elevation", "to": "number" },
+        { "op": "map", "path": "/items", "apply": { "op": "set", "path": "/type", "value": "item" } },
+        { "op": "filter", "path": "/items", "expr": ".value > 0" }
+      ]
+    }
+  ]
+}
+          </pre>
+          <p>
+            The table below summarizes the supported operations and their intent.
+          </p>
+          <table class="simple">
+            <thead>
+              <tr>
+                <th>Operation</th>
+                <th>Fields</th>
+                <th>Effect</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>set</code></td>
+                <td><code>path</code>, <code>value</code></td>
+                <td>Creates or replaces a value at <code>path</code>.</td>
+              </tr>
+              <tr>
+                <td><code>copy</code></td>
+                <td><code>from</code>, <code>path</code></td>
+                <td>Copies value from <code>from</code> to <code>path</code>.</td>
+              </tr>
+              <tr>
+                <td><code>move</code></td>
+                <td><code>from</code>, <code>path</code></td>
+                <td>Moves value from <code>from</code> to <code>path</code>.</td>
+              </tr>
+              <tr>
+                <td><code>delete</code></td>
+                <td><code>path</code></td>
+                <td>Removes the value at <code>path</code>.</td>
+              </tr>
+              <tr>
+                <td><code>rename</code></td>
+                <td><code>from</code>, <code>path</code></td>
+                <td>Renames a field by moving and deleting the source.</td>
+              </tr>
+              <tr>
+                <td><code>cast</code></td>
+                <td><code>path</code>, <code>to</code></td>
+                <td>Casts a scalar to <code>string</code>, <code>number</code>, or <code>boolean</code>.</td>
+              </tr>
+              <tr>
+                <td><code>map</code></td>
+                <td><code>path</code>, <code>apply</code></td>
+                <td>Applies a nested operation to each element in an array.</td>
+              </tr>
+              <tr>
+                <td><code>filter</code></td>
+                <td><code>path</code>, <code>expr</code></td>
+                <td>Filters an array using a jq boolean expression.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+        <section id="kotlin-json-step">
+          <h4>kotlin-json</h4>
+          <p>
+            The <code>kotlin-json</code> step runs a Kotlin transform implementing
+            <code>JsonTransform</code> or <code>JsonTransformFactory</code>.
+            For portability, a transform can be packaged as a JAR and loaded via
+            <code>artifact</code> + <code>class</code>.
+          </p>
+          <p>This example references a transform class on the classpath.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "kotlin-json", "ref": "com.example.transforms.MyTransform" }
+  ]
+}
+          </pre>
+          <p>This example loads a portable transform from a remote JAR.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    {
+      "type": "kotlin-json",
+      "artifact": "https://example.com/transforms/my-transform.jar",
+      "class": "com.example.transforms.MyTransform"
+    }
+  ]
+}
+          </pre>
+          <p>This example uses a factory that returns a transform instance.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "kotlin-json", "ref": "com.example.transforms.MyTransformFactory" }
+  ]
+}
+          </pre>
+        </section>
+        <section id="json-schema-step">
+          <h4>json-schema</h4>
+          <p>
+            The <code>json-schema</code> step validates the normalized JSON document.
+            Use <code>strict</code> to control whether validation failures abort the pipeline.
+          </p>
+          <p>This example references an external JSON Schema and enables strict mode.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "json-schema", "ref": "schema.json", "strict": true }
+  ]
+}
+          </pre>
+          <p>This example embeds a minimal schema inline.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "json-schema", "code": "{ \"type\": \"object\" }", "strict": false }
+  ]
+}
+          </pre>
+        </section>
+        <section id="shacl-step">
+          <h4>shacl</h4>
+          <p>
+            The <code>shacl</code> step validates the RDF output. Implementations SHOULD surface
+            validation reports and MAY halt in strict mode.
+          </p>
+          <p>This example references a SHACL shapes graph.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "shacl", "ref": "shapes.ttl" }
+  ]
+}
+          </pre>
+          <p>This example embeds a minimal SHACL shape inline.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    {
+      "type": "shacl",
+      "code": "@prefix sh: <http://www.w3.org/ns/shacl#> .\\n[] a sh:NodeShape ."
+    }
+  ]
+}
+          </pre>
+        </section>
+        <section id="sparql-construct-step">
+          <h4>sparql-construct</h4>
+          <p>
+            The <code>sparql-construct</code> step builds a new RDF graph from the existing data.
+          </p>
+          <p>This example copies all triples.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "sparql-construct", "code": "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }" }
+  ]
+}
+          </pre>
+          <p>This example constructs derived statements.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    {
+      "type": "sparql-construct",
+      "code": "PREFIX ex: <https://example.com/>\\nCONSTRUCT { ?s ex:status \"active\" } WHERE { ?s ex:enabled true }"
+    }
+  ]
+}
+          </pre>
+        </section>
+        <section id="sparql-update-step">
+          <h4>sparql-update</h4>
+          <p>
+            The <code>sparql-update</code> step mutates the RDF graph in place.
+          </p>
+          <p>This example inserts triples.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    { "type": "sparql-update", "code": "INSERT { ?s ?p ?o } WHERE { ?s ?p ?o }" }
+  ]
+}
+          </pre>
+          <p>This example performs a delete/insert update.</p>
+          <pre class="example json">
+{
+  "additionalSteps": [
+    {
+      "type": "sparql-update",
+      "code": "PREFIX ex: <https://example.com/>\\nDELETE { ?s ex:status \"old\" } INSERT { ?s ex:status \"new\" } WHERE { ?s ex:status \"old\" }"
+    }
+  ]
+}
+          </pre>
+        </section>
+      </section>
+
+      <section id="input-spec">
+        <h3>Input</h3>
+        <p>Input specifies the data source. Implementations MAY support multiple types.</p>
+        <p>
+          For portability, inputs SHOULD avoid embedding credentials directly in the plan.
+          Implementations MAY allow environment variables or external secret managers to inject
+          sensitive values at runtime.
+        </p>
+        <p>This example configures an OGC API Features source.</p>
+        <pre class="example json">
+{
+  "input": {
+    "type": "api",
+    "protocol": "ogc-api-features",
+    "config": {
+      "baseUrl": "https://example.com/ogc",
+      "collection": "buildings"
+    }
+  }
+}
+        </pre>
+        <p>This example reads JSON from a local file path.</p>
+        <pre class="example json">
+{
+  "input": {
+    "type": "json",
+    "path": "data.json"
+  }
+}
+        </pre>
+        <p>This example reads XML from a local file path.</p>
+        <pre class="example json">
+{
+  "input": {
+    "type": "xml",
+    "path": "data.xml"
+  }
+}
+        </pre>
+        <p>This example reads CSV with headers enabled.</p>
+        <pre class="example json">
+{
+  "input": {
+    "type": "csv",
+    "path": "data.csv",
+    "hasHeader": true
+  }
+}
+        </pre>
+        <p>This example reads from a JDBC table.</p>
+        <pre class="example json">
+{
+  "input": {
+    "type": "jdbc",
+    "jdbcUrl": "jdbc:postgresql://localhost:5432/demo",
+    "table": "buildings",
+    "user": "demo",
+    "password": "secret"
+  }
+}
+        </pre>
+        <p>This example adds headers and a recordPath to the OGC API request.</p>
+        <pre class="example json">
+{
+  "input": {
+    "type": "api",
+    "protocol": "ogc-api-features",
+    "config": {
+      "baseUrl": "https://example.com/ogc",
+      "collection": "buildings",
+      "headers": { "Authorization": "Bearer token" },
+      "recordPath": "features"
+    }
+  }
+}
+        </pre>
+        <p>This example configures a WFS source with a CQL filter.</p>
+        <pre class="example json">
+{
+  "input": {
+    "type": "api",
+    "protocol": "wfs",
+    "config": {
+      "baseUrl": "https://example.com/geoserver/wfs",
+      "typeName": "workspace:buildings",
+      "params": { "cql_filter": "height > 10" }
+    }
+  }
+}
+        </pre>
+        <p>This example uses an OpenAPI document with explicit path and method.</p>
+        <pre class="example json">
+{
+  "input": {
+    "type": "api",
+    "protocol": "openapi",
+    "config": {
+      "spec": "openapi.yaml",
+      "path": "/buildings",
+      "method": "get",
+      "params": { "limit": "50" }
+    }
+  }
+}
+        </pre>
+      </section>
+
+      <section id="imports">
+        <h3>Imports</h3>
+        <p>Imports compose other plans into the current plan.</p>
+        <p>
+          Imports allow profile layering. A profile plan MAY import a base plan and add further
+          constraints or transformations. Implementations MUST detect and reject import cycles.
+        </p>
+        <p>This example imports a local base plan and a provider plan.</p>
+        <pre class="example json">
+{
+  "imports": [
+    { "ref": "base-plan.yaml" },
+    { "provider": "ogc-bblocks", "id": "ogc.geo.json-fg.feature" }
+  ]
+}
+        </pre>
+        <p>This example composes multiple base profiles.</p>
+        <pre class="example json">
+{
+  "imports": [
+    { "ref": "base-plan.yaml" },
+    { "provider": "ogc-bblocks", "id": "ogc.geo.json-fg.time" }
+  ]
+}
+        </pre>
+      </section>
+
+      <section id="metadata">
+        <h3>Metadata</h3>
+        <p>
+          Metadata is descriptive and does not change execution semantics. It can be used for
+          discovery, documentation, or profile selection in registries.
+        </p>
+        <p>This example provides full descriptive metadata for discovery and profiling.</p>
+        <pre class="example json">
+{
+  "metadata": {
+    "title": "JSON-FG Feature",
+    "description": "Profile for JSON-FG Feature objects",
+    "author": "OGC Building Blocks",
+    "version": "1.0.0",
+    "date": "2025-01-15",
+    "license": "CC-BY-4.0",
+    "keywords": ["json-fg", "feature"],
+    "schema": "https://schemas.example.org/feature.json",
+    "profile": "https://schemas.example.org/profiles/core",
+    "profilesOf": ["https://schemas.example.org/profiles/base"]
+  }
+}
+        </pre>
+        <p>This example shows a minimal metadata block.</p>
+        <pre class="example json">
+{
+  "metadata": {
+    "title": "Minimal Plan",
+    "version": "0.1.0"
+  }
+}
+        </pre>
+      </section>
+    </section>
+
+    <section id="composition">
+      <h2>Plan Composition Rules</h2>
+      <ul>
+        <li>Imports are resolved first, then merged into the local plan.</li>
+        <li>Contexts are combined into a JSON-LD <code>@context</code> array with local last.</li>
+        <li>Pre-steps and post-steps are concatenated in import order, then local steps.</li>
+        <li>Local input overrides imported input; otherwise the first imported input is used.</li>
+        <li>Metadata fields in the local plan override imported metadata.</li>
+      </ul>
+      <p>
+        If multiple plans correspond to the same schema, a profile identifier SHOULD be used to
+        disambiguate selection. Implementations MAY support registry-based selection by profile URI.
+      </p>
+    </section>
+
+    <section id="serializations">
+      <h2>Serializations</h2>
+      <p>
+        YAML and JSON are equivalent for the canonical model. Turtle serialization is defined by
+        a JSON-LD context that maps plan fields to RDF terms. Implementations MAY provide a JSON-LD
+        context and shapes for validation.
+      </p>
+      <p>
+        When serializing to RDF, implementations SHOULD include plan metadata and import
+        relationships to enable registry discovery and lineage tracking.
+      </p>
+    </section>
+
+    <section id="supported-formats">
+      <h2>Supported Formats</h2>
+      <p>
+        A conforming implementation MUST support the following plan serializations:
+      </p>
+      <ul>
+        <li>YAML</li>
+        <li>JSON</li>
+      </ul>
+      <p>
+        Implementations SHOULD support the following RDF serializations for plans:
+      </p>
+      <ul>
+        <li>Turtle (TTL)</li>
+        <li>JSON-LD (optional)</li>
+      </ul>
+      <p>
+        Implementations MAY support additional encodings as long as they can be converted
+        losslessly into the canonical JSON model.
+      </p>
+    </section>
+
+    <section id="security-considerations">
+      <h2>Security Considerations</h2>
+      <p>
+        Plans may reference remote artifacts (contexts, schemas, transforms). Implementations SHOULD
+        validate and sandbox remote resources, and MAY apply caching, allowlists, or signature
+        verification. Executing external scripts or loading transform jars can be unsafe if the
+        sources are not trusted.
+      </p>
+    </section>
+  </body>
+</html>
+
