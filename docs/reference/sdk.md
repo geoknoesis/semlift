@@ -6,6 +6,28 @@ permalink: /reference/sdk/
 
 SemLift provides a minimal Kotlin API for programmatic lifting.
 
+## Kotlin DSL
+
+Use the Kotlin DSL to build a `LiftPlan` in code and pass it directly to a lifter.
+The DSL is a convenience for authoring plans programmatically; the resulting plan
+is equivalent to the YAML/JSON model.
+
+```kotlin
+val plan = liftPlan {
+    context("context.jsonld")
+    pre(PreStep.KotlinJson(transform = jsonTransform {
+        default("/status", "active")
+    }))
+}
+
+val lifter = JenaSemanticLifter()
+val result = lifter.lift(
+    input = InputSource.Json(dataBytes),
+    plan = plan,
+    options = LiftOptions()
+)
+```
+
 ## Core entry point
 
 ```kotlin
